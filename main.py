@@ -2,6 +2,7 @@ import csv
 import pandas as pd
 import sqlite3
 import tkinter as tk
+import tkinter.simpledialog as simpledialog
 
 # Open the first CSV file and read the data
 with open('data/books.csv', 'r', encoding ='utf-8') as file:
@@ -39,6 +40,29 @@ borrowers = pd.read_sql_query("SELECT * FROM borrowers", conn)
 #print(books)
 #print(borrowers)
 
+# Create a connection to the SQLite database
+conn = sqlite3.connect('libDataBase.db')
+cursor = conn.cursor()
+
+# Create the 'Book Loans' table
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS BookLoans (
+        Loan_id INTEGER PRIMARY KEY,
+        isbn10 TEXT,
+        isbn13 TEXT,
+        card_id TEXT,
+        date_out TEXT,
+        due_date TEXT,
+        date_in TEXT,
+        FOREIGN KEY(isbn10) REFERENCES books(ISBN10),
+        FOREIGN KEY(isbn13) REFERENCES books(ISBN13),
+        FOREIGN KEY(card_id) REFERENCES borrowers(ID0000id)
+    )
+""")
+
+conn.commit()
+conn.close()
+
 def on_search_click():
     # Get the text from the entry field
     search_text = search_entry.get()
@@ -64,10 +88,21 @@ def on_search_click():
 
 def checkout_books():
     # Get the selected books
-    selected_books = results_listbox.curselection()
-
+    #selected_books = results_listbox.curselection()
+    card_id = simpledialog.askstring("Input", "Please enter your card_id:", parent=root)
     conn = sqlite3.connect('libDataBase.db')
     cursor = conn.cursor()
+
+    # Prompt for borrower's card_id
+    #card_id = input("Please enter your card_id: ")
+
+    # Check if card_id exists in borrowers table
+    cursor.execute("SELECT * FROM borrowers WHERE ID0000id = ?", (card_id,))
+    borrower = cursor.fetchone()
+
+    if borrower is None:
+        print("Invalid card_id.")
+        return
 
     # Print the selected books
     #for book in selected_books:
@@ -76,9 +111,18 @@ def checkout_books():
 
        # cursor.execute(f"UPDATE books SET availability = 'unavailable' WHERE title = '{title}'")
 
+    selected_books = results_listbox.curselection()
+
+
     for book in selected_books:
         title = results_listbox.get(book)
         print(results_listbox.get(book))
+
+        cursor.execute("SELECT availability, ISBN10, ISBN13 FROM books WHERE title = ?", (title,))
+        book_info = cursor.fetchone()
+        availability = book_info[0]
+        isbn10 = book_info[1]
+        isbn13 = book_info[2]
 
         cursor.execute("SELECT availability FROM books WHERE title = ?", (title,))
         availability = cursor.fetchone()[0]
@@ -86,6 +130,13 @@ def checkout_books():
         if availability == 'available':
             cursor.execute("UPDATE books SET availability = 'unavailable' WHERE title = ?", (title,))
             print(f"Book '{title}' has been checked out.")
+
+# Add entry to BookLoans table
+            cursor.execute("""
+                INSERT INTO BookLoans (isbn10, isbn13, card_id, date_out, due_date)
+                VALUES (?, ?, ?, date('now'), date('now', '+14 day'))
+            """, (isbn10, isbn13, card_id))
+
         else:
             print(f"Book '{title}' is currently unavailable.")
 
