@@ -80,10 +80,13 @@ def on_search_click():
     # Close the connection
     conn.close()
 
+    # Clear the listbox
     results_listbox.delete(0, tk.END)
 
+    # Iterate over each row and insert relevant data into the listbox
     for _, row in results.iterrows():
-        results_listbox.insert(tk.END, row['Title'])
+        display_text = f"ISBN10: {row['ISBN10']} | ISBN13: {row['ISBN13']}| Title: {row['Title']} | Author: {row['Authro']}"
+        results_listbox.insert(tk.END, display_text)
 
 
 def checkout_books():
