@@ -2,8 +2,8 @@ import csv
 import pandas as pd
 import sqlite3
 import tkinter as tk
-import tkinter.simpledialog as simpledialog
-from tkinter import ttk
+import datetime
+from tkinter import ttk, simpledialog, messagebox
 
 # Open the first CSV file and read the data
 with open('data/books.csv', 'r', encoding ='utf-8') as file:
@@ -38,31 +38,21 @@ borrowers.to_sql('borrowers', conn, if_exists='replace', index=False)
 books = pd.read_sql_query("SELECT * FROM books", conn)
 borrowers = pd.read_sql_query("SELECT * FROM borrowers", conn)
 
-#print(books)
-#print(borrowers)
 
-# Create a connection to the SQLite database
-conn = sqlite3.connect('libDataBase.db')
-cursor = conn.cursor()
-
-# Create the 'Book Loans' table
 cursor.execute("""
-    CREATE TABLE IF NOT EXISTS BookLoans (
-        Loan_id INTEGER PRIMARY KEY,
-        isbn10 TEXT,
-        isbn13 TEXT,
+     CREATE TABLE IF NOT EXISTS book_loans (
+        loan_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        isbn TEXT,
         card_id TEXT,
         date_out TEXT,
         due_date TEXT,
-        date_in TEXT,
-        FOREIGN KEY(isbn10) REFERENCES books(ISBN10),
-        FOREIGN KEY(isbn13) REFERENCES books(ISBN13),
-        FOREIGN KEY(card_id) REFERENCES borrowers(ID0000id)
+        date_in TEXT
     )
 """)
-
 conn.commit()
-conn.close()
+
+#print(books)
+#print(borrowers)
 
 def on_search_click():
     # Get the text from the entry field
@@ -81,52 +71,42 @@ def on_search_click():
     # Close the connection
     conn.close()
 
-    # Clear the listbox
     results_listbox.delete(0, tk.END)
 
-    # Iterate over each row and insert relevant data into the listbox
     for _, row in results.iterrows():
-        display_text = f"ISBN10: {row['ISBN10']} | ISBN13: {row['ISBN13']}| Title: {row['Title']} | Author: {row['Authro']}"
-        results_listbox.insert(tk.END, display_text)
+        results_listbox.insert(tk.END, row['Title'])
 
 
 def checkout_books():
     # Get the selected books
-    #selected_books = results_listbox.curselection()
-    card_id = simpledialog.askstring("Input", "Please enter your card_id:", parent=root)
+    selected_books = results_listbox.curselection()
+
+    card_id = card_id = simpledialog.askstring("Input", "Please enter your card ID:", parent=root)
+
     conn = sqlite3.connect('libDataBase.db')
     cursor = conn.cursor()
 
-    # Prompt for borrower's card_id
-    #card_id = input("Please enter your card_id: ")
-
-    # Check if card_id exists in borrowers table
+    # Check if the card_id is a valid ID number
     cursor.execute("SELECT * FROM borrowers WHERE ID0000id = ?", (card_id,))
     borrower = cursor.fetchone()
-
     if borrower is None:
-        print("Invalid card_id.")
+        print("Invalid card ID.")
+        messagebox.showinfo("Error", "Invalid card id, try again.")
         return
 
-    # Print the selected books
-    #for book in selected_books:
-     #   title = results_listbox.get(book)
-      #  print(results_listbox.get(book))
+    # Check if the borrower has already checked out 3 books
+    cursor.execute("SELECT COUNT(*) FROM book_loans WHERE card_id = ? AND date_in IS NULL", (card_id,))
+    num_loans = cursor.fetchone()[0]
 
-       # cursor.execute(f"UPDATE books SET availability = 'unavailable' WHERE title = '{title}'")
-
-    selected_books = results_listbox.curselection()
+    if num_loans > 3:
+        #print("You have reached the maximum number of checkouts (3).")
+        messagebox.showinfo("Checkout limit reached", "You have reached the maximum number of checkouts (3).")
+        return
 
 
     for book in selected_books:
         title = results_listbox.get(book)
         print(results_listbox.get(book))
-
-        cursor.execute("SELECT availability, ISBN10, ISBN13 FROM books WHERE title = ?", (title,))
-        book_info = cursor.fetchone()
-        availability = book_info[0]
-        isbn10 = book_info[1]
-        isbn13 = book_info[2]
 
         cursor.execute("SELECT availability FROM books WHERE title = ?", (title,))
         availability = cursor.fetchone()[0]
@@ -135,11 +115,13 @@ def checkout_books():
             cursor.execute("UPDATE books SET availability = 'unavailable' WHERE title = ?", (title,))
             print(f"Book '{title}' has been checked out.")
 
-# Add entry to BookLoans table
-            cursor.execute("""
-                INSERT INTO BookLoans (isbn10, isbn13, card_id, date_out, due_date)
-                VALUES (?, ?, ?, date('now'), date('now', '+14 day'))
-            """, (isbn10, isbn13, card_id))
+            # Add a new row to the 'book_loans' table
+            date_out = datetime.datetime.now().strftime("%Y-%m-%d")
+            due_date = (datetime.datetime.now() + datetime.timedelta(days=14)).strftime("%Y-%m-%d")
+            cursor.execute("INSERT INTO book_loans (isbn, card_id, date_out, due_date) VALUES (?, ?, ?, ?)", (title, card_id, date_out, due_date))
+
+            # Display a message box
+            messagebox.showinfo("Success", f"Book '{title}' has been successfully checked out to {card_id}.")
 
         else:
             print(f"Book '{title}' is currently unavailable.")
@@ -147,29 +129,81 @@ def checkout_books():
     conn.commit()
     conn.close()
 
+#NEW FUNCTIONS FOR SEARCHING CHECKED OUT BOOKS AND CHECKING IN BOOKS
+def on_search_checkouts_click():
+    # Get the text from the entry field
+    search_text = search_entry.get()
+
+    # Create a connection to the SQLite database
+    conn = sqlite3.connect('libDataBase.db')
+
+    # Query the database using pandas
+    query = f"SELECT * FROM book_loans WHERE isbn LIKE '%{search_text}%' OR card_id LIKE '%{search_text}%'"
+    results = pd.read_sql_query(query, conn)
+
+    # Print the results
+    print(results)
+
+    # Close the connection
+    conn.close()
+
+    results_listbox.delete(0, tk.END)
+
+    for _, row in results.iterrows():
+        results_listbox.insert(tk.END, row['isbn'])
+
+def checkin_books():
+    # Get the selected books
+    selected_books = results_listbox.curselection()
+
+    conn = sqlite3.connect('libDataBase.db')
+    cursor = conn.cursor()
+
+    # Print the selected books
+    for book in selected_books:
+        isbn = results_listbox.get(book)
+        print(results_listbox.get(book))
+
+        # Set the 'date_in' column to the current date for the selected book
+        date_in = datetime.datetime.now().strftime("%Y-%m-%d")
+        cursor.execute("UPDATE book_loans SET date_in = ? WHERE isbn = ?", (date_in, isbn))
+
+        # Set the 'availability' column to 'available' in the 'books' table
+        cursor.execute("UPDATE books SET availability = 'available' WHERE title = ?", (isbn,))
+
+    conn.commit()
+    conn.close()
+    messagebox.showinfo("Success", "Books have been successfully checked in.")
+
 root = tk.Tk()
 
 root.title("Library Database")
 root.geometry("800x500")
-tabControl = ttk.Notebook(root)
+#tabControl = ttk.Notebook(root)
 
-tab1 = ttk.Frame(tabControl)
-tab2 = ttk.Frame(tabControl)
+#tab1 = ttk.Frame(tabControl)
+#tab2 = ttk.Frame(tabControl)
 
-tabControl.add(tab1, text='search')
-tabControl.add(tab2, text='fines')
-tabControl.pack(expand = 1, fill ="both")
+#tabControl.add(tab1, text='search')
+#tabControl.add(tab2, text='fines')
+#tabControl.pack(expand = 1, fill ="both")
 
-search_entry = tk.Entry(tab1)
+search_entry = tk.Entry(root)
 search_entry.pack(padx=20,pady=20)
 
-search_button = tk.Button(tab1, text="Search", command=on_search_click)
+search_button = tk.Button(root, text="Search", command=on_search_click)
 search_button.pack(padx=20,pady=20)
 
-results_listbox = tk.Listbox(tab1, selectmode=tk.MULTIPLE, width=100)
+results_listbox = tk.Listbox(root, selectmode=tk.MULTIPLE, width=500)
 results_listbox.pack(padx=10, pady=10)
 
-checkout_button = tk.Button(tab1, text="Check Out Books", command=checkout_books)
+checkout_button = tk.Button(root, text="Check Out Books", command=checkout_books)
 checkout_button.pack(padx=10, pady=10)
+
+#update_day = tk.Button(tab2, text="Update Day")
+#update_day.pack(padx=10, pady=10)
+
+checkin_button = tk.Button(root, text="Check In Books", command=checkin_books)
+checkin_button.pack(padx=10, pady=10)
 
 root.mainloop()
