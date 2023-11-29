@@ -3,6 +3,7 @@ import pandas as pd
 import sqlite3
 import tkinter as tk
 import tkinter.simpledialog as simpledialog
+from tkinter import ttk
 
 # Open the first CSV file and read the data
 with open('data/books.csv', 'r', encoding ='utf-8') as file:
@@ -150,17 +151,25 @@ root = tk.Tk()
 
 root.title("Library Database")
 root.geometry("800x500")
+tabControl = ttk.Notebook(root)
 
-search_entry = tk.Entry(root)
+tab1 = ttk.Frame(tabControl)
+tab2 = ttk.Frame(tabControl)
+
+tabControl.add(tab1, text='search')
+tabControl.add(tab2, text='fines')
+tabControl.pack(expand = 1, fill ="both")
+
+search_entry = tk.Entry(tab1)
 search_entry.pack(padx=20,pady=20)
 
-search_button = tk.Button(root, text="Search", command=on_search_click)
+search_button = tk.Button(tab1, text="Search", command=on_search_click)
 search_button.pack(padx=20,pady=20)
 
-results_listbox = tk.Listbox(root, selectmode=tk.MULTIPLE)
+results_listbox = tk.Listbox(tab1, selectmode=tk.MULTIPLE, width=100)
 results_listbox.pack(padx=10, pady=10)
 
-checkout_button = tk.Button(root, text="Check Out Books", command=checkout_books)
+checkout_button = tk.Button(tab1, text="Check Out Books", command=checkout_books)
 checkout_button.pack(padx=10, pady=10)
 
 root.mainloop()
