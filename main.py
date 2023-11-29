@@ -261,7 +261,7 @@ def create_borrower():
                 csv_writer = csv.writer(csv_file)
                 csv_writer.writerow([id, ssn, first_name, last_name, address, "", "", ""])
             
-            error_label.config(text="Borrower created successfully.")
+            error_label.config(text="Borrower created successfully. " +id)
         except sqlite3.Error as e:
             print("Error creating borrower:", e)
             error_label.config(text="Error creating borrower.")
