@@ -397,7 +397,8 @@ def update_day():
 
 root = tk.Tk() # creates main window
 root.title("Library Database")
-root.geometry("800x500")
+root.geometry("1000x650")
+
 #tabControl = ttk.Notebook(root)
 
 #tab1 = ttk.Frame(tabControl)
@@ -407,16 +408,7 @@ root.geometry("800x500")
 #tabControl.add(tab2, text='fines')
 #tabControl.pack(expand = 1, fill ="both")
 
-tabControl = ttk.Notebook(root)
-
-tab1 = ttk.Frame(tabControl)
-tab2 = ttk.Frame(tabControl)
-
-tabControl.add(tab1, text='search')
-tabControl.add(tab2, text='fines')
-tabControl.pack(expand = 1, fill ="both")
-
-update_day_button = tk.Button(tab2, text="Update Day", command=update_day)
+update_day_button = tk.Button(root, text="Update Day", command=update_day)
 update_day_button.pack(padx=10, pady=10)
 
 
@@ -426,8 +418,19 @@ search_entry.pack(padx=20,pady=20)
 search_button = tk.Button(root, text="Search", command=on_search_click)
 search_button.pack(padx=20,pady=20)
 
-results_listbox = tk.Listbox(root, selectmode=tk.MULTIPLE, width=500)
-results_listbox.pack(padx=10, pady=10)
+box_frame = tk.Frame(root)
+box_frame.pack()
+
+results_listbox = tk.Listbox(box_frame, selectmode=tk.MULTIPLE, width=150)
+scrollbar_x = ttk.Scrollbar(box_frame, orient='horizontal')
+scrollbar_x.config(command = results_listbox.xview)
+scrollbar_x.pack(side = tk.BOTTOM, fill= tk.BOTH)
+results_listbox.pack(side=tk.LEFT, fill=tk.Y)
+scrollbar_y = ttk.Scrollbar(box_frame, orient='vertical')
+scrollbar_y.config(command = results_listbox.yview)
+scrollbar_y.pack(side = tk.RIGHT, fill= tk.BOTH)
+results_listbox.config(yscrollcommand=scrollbar_y.set)
+results_listbox.config(xscrollcommand=scrollbar_x.set)
 
 checkout_button = tk.Button(root, text="Check Out Books", command=checkout_books)
 checkout_button.pack(padx=10, pady=10)
