@@ -50,6 +50,18 @@ cursor.execute("""
         date_in TEXT
     )
 """)
+
+conn.commit()
+
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS FINES (
+        loan_id INTEGER PRIMARY KEY,
+        fine_amt REAL DEFAULT 0.00,
+        paid INTEGER DEFAULT 0,
+        FOREIGN KEY(loan_id) REFERENCES book_loans(loan_id)
+    )
+""")
+
 conn.commit()
 
 #print(books)
@@ -275,19 +287,130 @@ def create_borrower():
     error_label = tk.Label(add_borrower_window, text="", fg="red")
     error_label.pack()
     add_borrower_window.mainloop()
+    
+def update_fines():
+    conn = sqlite3.connect('libDataBase.db')
+    cursor = conn.cursor()
+
+    # Get current date
+    today = datetime.datetime.now().date()
+
+    # Select all loans that are either not returned or returned late
+    cursor.execute("SELECT loan_id, due_date, date_in FROM book_loans WHERE date_in IS NULL OR date_in > due_date")
+    loans = cursor.fetchall()
+
+    for loan_id, due_date, date_in in loans:
+        due_date = datetime.datetime.strptime(due_date, '%Y-%m-%d').date()
+        if date_in:
+            date_in = datetime.datetime.strptime(date_in, '%Y-%m-%d').date()
+
+        # Calculate fine based on whether book is returned or not
+        if date_in:  # Book is returned
+            days_late = (date_in - due_date).days
+        else:  # Book is not returned
+            days_late = (today - due_date).days
+
+        fine_amount = max(days_late, 0) * 0.25
+
+        # Update or insert fine
+        cursor.execute("SELECT fine_amt, paid FROM FINES WHERE loan_id = ?", (loan_id,))
+        fine = cursor.fetchone()
+
+        if fine:
+            if not fine[1]:  # If not paid, update the amount if it's different
+                if fine[0] != fine_amount:
+                    cursor.execute("UPDATE FINES SET fine_amt = ? WHERE loan_id = ?", (fine_amount, loan_id))
+        else:
+            cursor.execute("INSERT INTO FINES (loan_id, fine_amt) VALUES (?, ?)", (loan_id, fine_amount))
+        
+    conn.commit()
+    conn.close()
+    
+def pay_fines():
+    # Create a new window for fine payment
+    fine_window = tk.Tk()
+    fine_window.title("Pay Fines")
+
+    # Function to update the fine as paid
+    def update_fine_as_paid():
+        # Get the selected fine loan ID
+        selected_idx = fine_listbox.curselection()
+        if not selected_idx:
+            messagebox.showinfo("Select a Fine", "Please select a fine to pay")
+            return
+
+        loan_id = fine_listbox.get(selected_idx)
+
+        # Connect to the database
+        conn = sqlite3.connect('libDataBase.db')
+        cursor = conn.cursor()
+
+        # Check if the book is returned
+        cursor.execute("SELECT date_in FROM book_loans WHERE loan_id = ?", (loan_id,))
+        date_in = cursor.fetchone()[0]
+        if not date_in:
+            messagebox.showerror("Error", "Cannot pay a fine for a book that is not returned")
+            conn.close()
+            return
+
+        # Update the fine as paid
+        cursor.execute("UPDATE FINES SET paid = 1 WHERE loan_id = ?", (loan_id,))
+        conn.commit()
+        conn.close()
+        messagebox.showinfo("Success", "Fine paid successfully")
+        fine_window.destroy()
+        load_fines()
+
+    # Function to load fines into the listbox
+    def load_fines():
+        fine_listbox.delete(0, tk.END)
+        conn = sqlite3.connect('libDataBase.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT loan_id FROM FINES WHERE paid = 0")
+        for loan_id in cursor.fetchall():
+            fine_listbox.insert(tk.END, loan_id[0])
+        conn.close()
+
+    fine_listbox = tk.Listbox(fine_window)
+    fine_listbox.pack(padx=10, pady=10)
+
+    pay_button = tk.Button(fine_window, text="Pay Fine", command=update_fine_as_paid)
+    pay_button.pack(padx=10, pady=10)
+
+    load_fines()
+    fine_window.mainloop()
+
+
+def update_day():
+    # Ask the user to input a new date
+    new_date_str = simpledialog.askstring("Update Day", "Enter the new date (YYYY-MM-DD):", parent=root)
+    
+    try:
+        # Try to parse the entered date
+        new_date = datetime.datetime.strptime(new_date_str, "%Y-%m-%d").date()
+        messagebox.showinfo("New Date", f"Date updated to: {new_date}")
+        # Here, you can add any logic that needs to happen on date change
+        # For example, updating fine calculations or other date-dependent features
+    except (ValueError, TypeError):
+        messagebox.showerror("Error", "Invalid date format. Please enter a date in YYYY-MM-DD format.")
+
 
 root = tk.Tk() # creates main window
 root.title("Library Database")
 root.geometry("800x500")
 
-#tabControl = ttk.Notebook(root)
+tabControl = ttk.Notebook(root)
 
-#tab1 = ttk.Frame(tabControl)
-#tab2 = ttk.Frame(tabControl)
+tab1 = ttk.Frame(tabControl)
+tab2 = ttk.Frame(tabControl)
 
-#tabControl.add(tab1, text='search')
-#tabControl.add(tab2, text='fines')
-#tabControl.pack(expand = 1, fill ="both")
+tabControl.add(tab1, text='search')
+tabControl.add(tab2, text='fines')
+tabControl.pack(expand = 1, fill ="both")
+
+update_day_button = tk.Button(tab2, text="Update Day", command=update_day)
+update_day_button.pack(padx=10, pady=10)
+
 
 search_entry = tk.Entry(root)
 search_entry.pack(padx=20,pady=20)
@@ -301,8 +424,6 @@ results_listbox.pack(padx=10, pady=10)
 checkout_button = tk.Button(root, text="Check Out Books", command=checkout_books)
 checkout_button.pack(padx=10, pady=10)
 
-#update_day = tk.Button(tab2, text="Update Day")
-#update_day.pack(padx=10, pady=10)
 
 checkin_button = tk.Button(root, text="Check In Books", command=checkin_books)
 checkin_button.pack(padx=10, pady=10)
@@ -314,5 +435,13 @@ add_borrower_button = tk.Button(add_borrower_frame, text="Add Borrower", command
 add_borrower_button.pack(side=tk.LEFT)
 error_label = tk.Label(root, text="", fg="red")
 error_label.pack()
+
+fine_button = tk.Button(root, text="Update Fines", command=update_fines)
+fine_button.pack(padx=10, pady=10)
+
+pay_fine_button = tk.Button(root, text="Pay Fines", command=pay_fines)
+pay_fine_button.pack(padx=10, pady=10)
+
+
 
 root.mainloop()
