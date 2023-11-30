@@ -389,6 +389,7 @@ def update_day():
         # Try to parse the entered date
         new_date = datetime.datetime.strptime(new_date_str, "%Y-%m-%d").date()
         messagebox.showinfo("New Date", f"Date updated to: {new_date}")
+        date_label.config(text=new_date)
         # Here, you can add any logic that needs to happen on date change
         # For example, updating fine calculations or other date-dependent features
     except (ValueError, TypeError):
@@ -408,15 +409,17 @@ root.geometry("1000x650")
 #tabControl.add(tab2, text='fines')
 #tabControl.pack(expand = 1, fill ="both")
 
+date_label = tk.Label(root, text = datetime.datetime.now().strftime("%Y-%m-%d"))
+date_label.pack()
+
 update_day_button = tk.Button(root, text="Update Day", command=update_day)
 update_day_button.pack(padx=10, pady=10)
 
-
 search_entry = tk.Entry(root)
-search_entry.pack(padx=20,pady=20)
+search_entry.pack(padx=10,pady=10)
 
 search_button = tk.Button(root, text="Search", command=on_search_click)
-search_button.pack(padx=20,pady=20)
+search_button.pack(padx=10,pady=10)
 
 box_frame = tk.Frame(root)
 box_frame.pack()
