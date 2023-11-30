@@ -4,6 +4,7 @@ import sqlite3
 import tkinter as tk
 import datetime
 from tkinter import ttk, simpledialog, messagebox
+import random
 
 # Open the first CSV file and read the data
 with open('data/books.csv', 'r', encoding ='utf-8') as file:
@@ -71,10 +72,14 @@ def on_search_click():
     # Close the connection
     conn.close()
 
+    # Clear the listbox
     results_listbox.delete(0, tk.END)
 
+    # Iterate over each row and insert relevant data into the listbox
     for _, row in results.iterrows():
         results_listbox.insert(tk.END, row['Title'])
+        display_text = f"ISBN10: {row['ISBN10']} | ISBN13: {row['ISBN13']}| Title: {row['Title']} | Author: {row['Authro']}"
+        results_listbox.insert(tk.END, display_text)
 
 
 def checkout_books():
@@ -174,11 +179,115 @@ def checkin_books():
     conn.commit()
     conn.close()
     messagebox.showinfo("Success", "Books have been successfully checked in.")
+    
+#NEW FUNCTIONS FOR NEW BORRORWERS 
+# used_id list 
+used_ids = []
 
-root = tk.Tk()
+# function to generate unique ID (format: "ID000999")
+def generate_id():
+    conn = sqlite3.connect('libDataBase.db')
+    cursor = conn.cursor()
+    
+    while True:
+        # generate random 3-digit number
+        unique_number = str(random.randint(0, 999)).zfill(3)
+        
+        # create ID (combine "ID000" & unique number)
+        id = f"ID000{unique_number}"
+        
+        # check if ID exists 
+        if id not in used_ids:
+            # if ID is unique, add it to the used_ids list and return it
+            used_ids.append(id)
+            conn.close()
+            return id
+        
+# new borrower function
+def create_borrower():
+    # crate new GUI window for adding borrowers
+    add_borrower_window = tk.Tk()
+    add_borrower_window.title("Add New Borrower")
+    # add GUI elements for capturing borrower information
+    borrower_first_name_label = tk.Label(add_borrower_window, text="First Name:")
+    borrower_first_name_label.pack()
+    borrower_first_name_entry = tk.Entry(add_borrower_window)
+    borrower_first_name_entry.pack()
+    borrower_last_name_label = tk.Label(add_borrower_window, text="Last Name:")
+    borrower_last_name_label.pack()
+    borrower_last_name_entry = tk.Entry(add_borrower_window)
+    borrower_last_name_entry.pack()
+    borrower_ssn_label = tk.Label(add_borrower_window, text="SSN:")
+    borrower_ssn_label.pack()
+    borrower_ssn_entry = tk.Entry(add_borrower_window)
+    borrower_ssn_entry.pack()
+    borrower_address_label = tk.Label(add_borrower_window, text="Address:")
+    borrower_address_label.pack()
+    borrower_address_entry = tk.Entry(add_borrower_window)
+    borrower_address_entry.pack()
+    def save_borrower():
+        # borrower information from entry fields
+        first_name = borrower_first_name_entry.get()
+        last_name = borrower_last_name_entry.get()
+        ssn = borrower_ssn_entry.get()
+        address = borrower_address_entry.get()
+        # validate that all required fields are filled
+        if not first_name or not last_name or not ssn or not address:
+            # display an error message to the user
+            error_label.config(text="Please fill in all required fields.")
+            return
+        # check if SSN is already in database 
+        conn = sqlite3.connect('libDataBase.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM borrowers WHERE ssn = ?", (ssn,))
+        existing_borrower = cursor.fetchone()
+        conn.close()
+        if existing_borrower:
+            error_label.config(text="Borrower with the same SSN already exists.")
+            return
+        # generate unique ID 
+        id = generate_id()
+        
+        # insert new borrower record into the database
+        conn = sqlite3.connect('libDataBase.db')
+        cursor = conn.cursor()
+        try:
+            cursor.execute("INSERT INTO borrowers (ID0000id, first_name, last_name, ssn, address) VALUES (?, ?, ?, ?, ?)", (id, first_name, last_name, ssn, address))
+            conn.commit()
+            conn.close()
+            
+            # save the borrower information to the borrowers.csv file
+            with open('data/borrowers.csv', 'a', newline='', encoding='utf-8') as csv_file:
+                csv_writer = csv.writer(csv_file)
+                csv_writer.writerow([id, ssn, first_name, last_name, address, "", "", ""])
+            
+            error_label.config(text="Borrower created successfully. " +id)
+        except sqlite3.Error as e:
+            print("Error creating borrower:", e)
+            error_label.config(text="Error creating borrower.")
+        # clear the input fields
+        borrower_first_name_entry.delete(0, tk.END)
+        borrower_last_name_entry.delete(0, tk.END)
+        borrower_ssn_entry.delete(0, tk.END)
+        borrower_address_entry.delete(0, tk.END)
+    save_button = tk.Button(add_borrower_window, text="Save Borrower", command=save_borrower)
+    save_button.pack()
+    error_label = tk.Label(add_borrower_window, text="", fg="red")
+    error_label.pack()
+    add_borrower_window.mainloop()
 
+root = tk.Tk() # creates main window
 root.title("Library Database")
 root.geometry("800x500")
+#tabControl = ttk.Notebook(root)
+
+#tab1 = ttk.Frame(tabControl)
+#tab2 = ttk.Frame(tabControl)
+
+#tabControl.add(tab1, text='search')
+#tabControl.add(tab2, text='fines')
+#tabControl.pack(expand = 1, fill ="both")
+
 #tabControl = ttk.Notebook(root)
 
 #tab1 = ttk.Frame(tabControl)
@@ -205,5 +314,13 @@ checkout_button.pack(padx=10, pady=10)
 
 checkin_button = tk.Button(root, text="Check In Books", command=checkin_books)
 checkin_button.pack(padx=10, pady=10)
+
+# create a frame to hold the "Add Borrower" button
+add_borrower_frame = tk.Frame(root)
+add_borrower_frame.pack(padx=10, pady=10)
+add_borrower_button = tk.Button(add_borrower_frame, text="Add Borrower", command=create_borrower)
+add_borrower_button.pack(side=tk.LEFT)
+error_label = tk.Label(root, text="", fg="red")
+error_label.pack()
 
 root.mainloop()
