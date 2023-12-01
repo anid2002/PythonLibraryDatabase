@@ -203,10 +203,10 @@ def generate_id():
     
     while True:
         # generate random 3-digit number
-        unique_number = str(random.randint(0, 999)).zfill(3)
+        unique_number = str(random.randint(1, 999)).zfill(3)
         
         # create ID (combine "ID000" & unique number)
-        id = f"ID000{unique_number}"
+        id = f"ID00{unique_number}0"
         
         # check if ID exists 
         if id not in used_ids:
@@ -408,16 +408,10 @@ root = tk.Tk() # creates main window
 root.title("Library Database")
 root.geometry("1000x650")
 
-#tabControl = ttk.Notebook(root)
-
-#tab1 = ttk.Frame(tabControl)
-#tab2 = ttk.Frame(tabControl)
-
-#tabControl.add(tab1, text='search')
-#tabControl.add(tab2, text='fines')
-#tabControl.pack(expand = 1, fill ="both")
-
-date_label = tk.Label(root, text = datetime.datetime.now().strftime("%Y-%m-%d"))
+try: 
+    date_label = tk.Label(root, text = new_date)
+except NameError:
+    date_label = tk.Label(root, text = datetime.datetime.now().strftime("%Y-%m-%d"))
 date_label.pack()
 
 update_day_button = tk.Button(root, text="Update Day", command=update_day)
