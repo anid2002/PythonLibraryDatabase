@@ -293,7 +293,10 @@ def update_fines():
     cursor = conn.cursor()
 
     # Get current date
-    today = datetime.datetime.now().date()
+    try:
+        today = new_date
+    except NameError:
+        today = datetime.datetime.now()
 
     # Select all loans that are either not returned or returned late
     cursor.execute("SELECT loan_id, due_date, date_in FROM book_loans WHERE date_in IS NULL OR date_in > due_date")
@@ -366,9 +369,11 @@ def pay_fines():
         fine_listbox.delete(0, tk.END)
         conn = sqlite3.connect('libDataBase.db')
         cursor = conn.cursor()
-        cursor.execute("SELECT loan_id FROM FINES WHERE paid = 0")
+        cursor.execute("SELECT loan_id, fine_amt FROM FINES WHERE paid = 0")
         for loan_id in cursor.fetchall():
             fine_listbox.insert(tk.END, loan_id[0])
+            #inserts fine ammount on next line after loan id
+            fine_listbox.insert(tk.END, loan_id[1])
         conn.close()
 
     fine_listbox = tk.Listbox(fine_window)
@@ -387,6 +392,7 @@ def update_day():
     
     try:
         # Try to parse the entered date
+        global new_date
         new_date = datetime.datetime.strptime(new_date_str, "%Y-%m-%d").date()
         messagebox.showinfo("New Date", f"Date updated to: {new_date}")
         date_label.config(text=new_date)
