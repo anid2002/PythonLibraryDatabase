@@ -333,6 +333,7 @@ def pay_fines():
     # Create a new window for fine payment
     fine_window = tk.Tk()
     fine_window.title("Pay Fines")
+    fine_window.geometry("400x250")
 
     # Function to update the fine as paid
     def update_fine_as_paid():
@@ -371,12 +372,13 @@ def pay_fines():
         cursor = conn.cursor()
         cursor.execute("SELECT loan_id, fine_amt FROM FINES WHERE paid = 0")
         for loan_id in cursor.fetchall():
+            temp_str = "Loan ID: " + str(loan_id[0]) + "  Amount Due: " + str('%.2f' % loan_id[1])
             fine_listbox.insert(tk.END, loan_id[0])
-            #inserts fine ammount on next line after loan id
-            fine_listbox.insert(tk.END, loan_id[1])
+            fine_listbox.insert(tk.END, temp_str)
+            #inserts fine amount on next line after loan id
         conn.close()
 
-    fine_listbox = tk.Listbox(fine_window)
+    fine_listbox = tk.Listbox(fine_window, width=30)
     fine_listbox.pack(padx=10, pady=10)
 
     pay_button = tk.Button(fine_window, text="Pay Fine", command=update_fine_as_paid)
